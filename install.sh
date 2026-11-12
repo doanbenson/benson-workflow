@@ -24,5 +24,5 @@ for target in "${TARGET_DIRS[@]}"; do
 done
 
 echo ""
-echo "✅ All 5 skills installed globally across Claude Code, Cursor, and .agents!"
+echo "✅ All 6 skills installed globally across Claude Code, Cursor, and .agents!"
 echo "👉 Run '/setup-benson-workflow' inside any project repository to bootstrap its context.md harness."

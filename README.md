@@ -1,6 +1,6 @@
 # Benson's Agentic Engineering Harness (`benson-workflow`)
 
-A portable, 5-skill software development lifecycle (SDLC) harness for Claude Code, Cursor, and `.agents`-compatible coding agents. Synthesizes the highest-leverage practices from `mattpocock/skills` (Frontier Grilling & Seam TDD), `pstack` (`/how` + `/why` grounding, `/arena` 2-candidate design sketches, & `comment-sicko` unslopping), and `obra/superpowers` (Execution Ledgers & Rulings over Stalls).
+A lean, 6-skill software development lifecycle (SDLC) harness for Claude Code, Cursor, and `.agents`-compatible coding agents. Designed around Karpathy-style minimalism: high-leverage architectural guardrails without prompt bloat or micro-management.
 
 ## Quick Install (Any Laptop)
 
@@ -17,12 +17,13 @@ npx skills@latest add <your-github-username>/benson-workflow -g
 
 ---
 
-## The 5 Lifecycle Skills
+## The 6 Lifecycle Skills
 
-| Command | Stage | What It Does |
+| Command | Stage | Purpose |
 | :--- | :--- | :--- |
-| `/setup-benson-workflow` | **0. Repo Bootstrap** | Scaffolds root `CLAUDE.md` (<100 lines) and `<dir>/context.md` (<50 lines) in high-leverage directories, configures `.gitignore` for `.workflow/`, and locks in build/test/runtime commands. |
-| `/start-workflow` | **1. Ground, Grill & Spec** | Runs silent `/how` + `/why` grounding, executes Frontier Grilling (`❓`/`➡️`), classifies Two-Way vs. One-Way Doors (optional 2-candidate `/arena` sketch), and writes a seam-locked `.workflow/<slug>/spec.md`. |
-| `/implement-workflow` | **2. Seam-First Execution** | Executes vertical tracer-bullet slices using Contractual Seam TDD (`RED -> GREEN -> REFACTOR`), logs tactical rulings in `.workflow/<slug>/ledger.md`, and runs runtime checks. |
-| `/pivot-workflow` | **3. Blocker Recovery** | Triggered on mid-flight blockers or Two-Strike test failures ("Attack the Premise"). Diagnoses spec vs. reality, patches `spec.md`, and encodes the trap into `<dir>/context.md`. |
-| `/complete-workflow` | **4. Audit, Unslop & Ship** | Runs adversarial Spec/Seam/Context diff audit, strips LLM narration comments (`/no-comments`), verifies fresh CLI test/build output, deletes `.workflow/<slug>/`, and generates the PR package. |
+| `/setup-benson-workflow` | **0. Repo Bootstrap** | Scaffolds lean root `CLAUDE.md` (<80 lines) and `<dir>/context.md` (<40 lines), ignores `.workflow/` & `.worktrees/`, and locks in build/test commands. |
+| `/breakdown-feature` | **1. Feature Architect** | Grounds a PRD or Jira epic (`/how` + `/why`), runs Frontier Grilling (`❓`/`➡️`), and cuts vertical tracer-bullet tickets into `.workflow/<slug>/tickets/` or Jira MCP. |
+| `/start-workflow` | **2. Command Center** | Dispatches ready frontier tickets concurrently in isolated `git worktree`s, batches worker questions into one human clearinghouse, and merges slices onto `feat/<slug>`. |
+| `/implement-workflow` | **3. Ticket Worker** | Executes a ticket in its worktree using Seam-First TDD (with an escape hatch for trivial config edits) and logs traps in `ledger.md`. |
+| `/pivot-workflow` | **4. Blocker Recovery** | Stops Two-Strike debug spirals ("Attack the Premise"), patches the ticket contract, and encodes the trap into `<dir>/context.md`. |
+| `/complete-workflow` | **5. Audit & Ship** | Audits merged diff against tickets/`context.md`, strips narration comments, verifies fresh CLI tests, deletes `.workflow/<slug>/`, and drafts the PR. |
