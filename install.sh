@@ -4,62 +4,84 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$REPO_DIR/skills"
 
-# Default target directories (override by passing a custom path as $1, or setting AGENT_SKILLS_DIR)
-if [ $# -ge 1 ]; then
-  TARGET_DIRS=("$1")
-elif [ -n "${AGENT_SKILLS_DIR:-}" ]; then
-  TARGET_DIRS=("$AGENT_SKILLS_DIR")
-else
-  TARGET_DIRS=("$HOME/.claude/skills")
-  # Also update ~/.agents/skills or ~/.codex/skills if they exist on the machine
-  [ -d "$HOME/.agents/skills" ] && TARGET_DIRS+=("$HOME/.agents/skills")
-  [ -d "$HOME/.codex/skills" ] && TARGET_DIRS+=("$HOME/.codex/skills")
-fi
+# 1. Canonical install roots (one per CLI ecosystem so Codex never sees two copies)
+INSTALL_ROOTS=(
+  "$HOME/.claude/skills"
+  "$HOME/.agents/skills"
+  "$HOME/.kiro/skills"
+)
+[ -d "$HOME/.kiro/crew" ] && INSTALL_ROOTS+=("$HOME/.kiro/crew/skills")
 
-echo "Installing benson-workflow skills from: $SKILLS_SRC"
+# 2. All locations where stale/duplicate copies might hide (especially ~/.codex/skills)
+CLEANUP_ROOTS=(
+  "${INSTALL_ROOTS[@]}"
+  "${CODEX_HOME:-$HOME/.codex}/skills"
+  "$HOME/.codex/skills"
+  "$HOME/.cursor/skills"
+  "$REPO_DIR/.agents/skills"
+  "$REPO_DIR/.codex/skills"
+  "$REPO_DIR/.claude/skills"
+  "$REPO_DIR/.kiro/skills"
+)
 
-for TARGET_Root in "${TARGET_DIRS[@]}"; do
-  mkdir -p "$TARGET_Root"
+extract_skill_name() {
+  local md_file="$1"
+  awk '/^name:[[:space:]]*/ {sub(/^name:[[:space:]]*/, ""); gsub(/["'\''\r]/, ""); print; exit}' "$md_file"
+}
+
+echo "Syncing benson-workflow skills (Single Source of Truth: $SKILLS_SRC)"
+
+for src_dir in "$SKILLS_SRC"/*/; do
+  [ -d "$src_dir" ] || continue
+  src_dir="${src_dir%/}"
+  skill_md="$src_dir/SKILL.md"
+  [ -f "$skill_md" ] || continue
+
+  folder_name="$(basename "$src_dir")"
+  skill_name="$(extract_skill_name "$skill_md")"
+  if [ -z "$skill_name" ]; then
+    skill_name="$(echo "$folder_name" | sed -E 's/^[0-9]+(\.[0-9]+)?-//')"
+  fi
+
   echo ""
-  echo "Target directory: $TARGET_Root"
+  echo "==> Skill: $skill_name (source: skills/$folder_name)"
 
-  for src_dir in "$SKILLS_SRC"/*/; do
-    [ -d "$src_dir" ] || continue
-    skill_md="$src_dir/SKILL.md"
-    [ -f "$skill_md" ] || continue
+  # Step A: Purge ALL existing copies/symlinks across all known CLI and legacy Codex paths
+  for root in "${CLEANUP_ROOTS[@]}"; do
+    [ -d "$root" ] || continue
 
-    folder_name="$(basename "$src_dir")"
-    # Extract canonical skill name from YAML frontmatter (fallback to stripped folder name)
-    skill_name="$(awk '/^name:[[:space:]]*/ {sub(/^name:[[:space:]]*/, ""); gsub(/["'\''\r]/, ""); print; exit}' "$skill_md")"
-    if [ -z "$skill_name" ]; then
-      skill_name="$(echo "$folder_name" | sed -E 's/^[0-9]+(\.[0-9]+)?-//')"
-    fi
-
-    # 1. Remove any existing folders matching the numbered folder name OR canonical skill name
-    rm -rf "$TARGET_Root/$folder_name"
-    rm -rf "$TARGET_Root/$skill_name"
-
-    # 2. Scan all other subdirectories in TARGET_Root and remove any stale directory
-    #    whose SKILL.md declares the same `name: <skill_name>` (eliminates hidden duplicates)
-    for existing_dir in "$TARGET_Root"/*/; do
-      [ -d "$existing_dir" ] || continue
-      existing_md="$existing_dir/SKILL.md"
-      if [ -f "$existing_md" ]; then
-        existing_name="$(awk '/^name:[[:space:]]*/ {sub(/^name:[[:space:]]*/, ""); gsub(/["'\''\r]/, ""); print; exit}' "$existing_md")"
-        if [ "$existing_name" = "$skill_name" ]; then
-          echo "  - Removing duplicate/stale skill folder: $(basename "$existing_dir")"
-          rm -rf "$existing_dir"
-        fi
+    # Remove direct matches (both numbered e.g. 0-setup-... and canonical e.g. setup-...)
+    for candidate in "$root/$folder_name" "$root/$skill_name"; do
+      if [ -e "$candidate" ] || [ -L "$candidate" ]; then
+        rm -rf "$candidate"
+        echo "  - Cleaned old entry: $candidate"
       fi
     done
 
-    # 3. Copy fresh skill into canonical directory name: <TARGET_Root>/<skill_name>
-    dest_dir="$TARGET_Root/$skill_name"
-    mkdir -p "$dest_dir"
-    cp -R "$src_dir"/. "$dest_dir"/
-    echo "  ✓ Installed $skill_name (overwrote previous version)"
+    # Scan every subfolder in $root (including symlinks) for matching `name:` in SKILL.md
+    for existing_dir in "$root"/* "$root"/.*; do
+      [ -e "$existing_dir" ] || [ -L "$existing_dir" ] || continue
+      base="$(basename "$existing_dir")"
+      [[ "$base" == "." || "$base" == ".." ]] && continue
+
+      if [ -f "$existing_dir/SKILL.md" ]; then
+        existing_name="$(extract_skill_name "$existing_dir/SKILL.md")"
+        if [ "$existing_name" = "$skill_name" ]; then
+          rm -rf "$existing_dir"
+          echo "  - Removed duplicate skill folder: $existing_dir"
+        fi
+      fi
+    done
+  done
+
+  # Step B: Symlink canonical folder directly to the repo's skill directory
+  for target_root in "${INSTALL_ROOTS[@]}"; do
+    mkdir -p "$target_root"
+    ln -sfn "$src_dir" "$target_root/$skill_name"
+    echo "  ✓ Linked $target_root/$skill_name -> $src_dir"
   done
 done
 
 echo ""
-echo "Done! All benson-workflow skills are up to date with zero duplicates."
+echo "Done! All duplicates purged from ~/.codex/skills, and skills are now symlinked to your repo."
+echo "Note: Restart Codex CLI (or run a fresh session) so it reloads the skill index."
